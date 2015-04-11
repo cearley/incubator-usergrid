@@ -141,19 +141,30 @@ public class UsersResource extends ServiceResource {
                                              @FormParam("recaptcha_challenge_field") String challenge,
                                              @FormParam("recaptcha_response_field") String uresponse ) {
 
-        try {
-            ReCaptchaImpl reCaptcha = new ReCaptchaImpl();
-            reCaptcha.setPrivateKey( properties.getRecaptchaPrivate() );
-
-            ReCaptchaResponse reCaptchaResponse =
-                    reCaptcha.checkAnswer( httpServletRequest.getRemoteAddr(), challenge, uresponse );
-
+        try {            
             if ( isBlank( email ) ) {
                 errorMsg = "No email provided, try again...";
                 return handleViewable( "resetpw_email_form", this );
             }
 
-            if ( !useReCaptcha() || reCaptchaResponse.isValid() ) {
+            // Use recaptcha only if it's set in the properties file
+            boolean reCaptchaPassed = false;
+            if ( useReCaptcha() ) {
+
+                ReCaptchaImpl reCaptcha = new ReCaptchaImpl();
+                reCaptcha.setPrivateKey(properties.getRecaptchaPrivate());
+
+                ReCaptchaResponse reCaptchaResponse =
+                        reCaptcha.checkAnswer(httpServletRequest.getRemoteAddr(), challenge, uresponse);
+
+                if (reCaptchaResponse.isValid()) {
+                    reCaptchaPassed = true;
+                }
+            } else {
+                reCaptchaPassed = true;
+            }
+
+            if ( reCaptchaPassed ) {
                 user = management.getAppUserByIdentifier( getApplicationId(), Identifier.fromEmail( email ) );
                 if ( user != null ) {
                     management.startAppUserPasswordResetFlow( getApplicationId(), user );
